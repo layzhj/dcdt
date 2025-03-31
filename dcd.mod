@@ -1,12 +1,13 @@
 UNITS {
-  (nA) = (nanoamp)
-  (mV) = (millivolt)
-  (uF) = (microfarad)
-  (F) = (farad)
-  (Pa) = (N/meter2)
-  (um) = (micron)
-  (mol) = (mole)
-  PI = (pi) (1)
+	(nA) = (nanoamp)
+	(mV) = (millivolt)
+	(uF) = (microfarad)
+	(nC) = (nanocoul)
+	(F) = (farad)
+	(Pa) = (N/meter2)
+	(um) = (micron)
+	(mol) = (mole)
+	PI = (pi) (1)
 }
 
 NEURON {
@@ -28,7 +29,7 @@ PARAMETER {
   f = 1000 (/ms)
   zeR = 0 (um)
   oneR = 1 (um)
-  z0 = 2.71817e-6 (um)
+  z0 = 0 (um)
   u0 = 0 (um/ms)
   
   T = 309.15 (K)
@@ -105,27 +106,31 @@ FUNCTION sign(i(um)) (1) {
 
 FUNCTION PMavgPred (Z(um)) (Pa) {
 	LOCAL LJ_factor
-	LJ_factor = LJ_alpha / (2 * Z + Delta)
-	PMavgPred = LJ_C * (LJ_factor ^ m - LJ_factor ^ n)
+	if (Z<Zqs) {
+		PMavgPred = 0
+	} else {
+		LJ_factor = LJ_alpha / (2 * Z + Delta)
+		PMavgPred = LJ_C * (LJ_factor ^ m - LJ_factor ^ n)
+	}
 }
 
 FUNCTION PEtot (Z(um)) (Pa) {
 	PEtot = -(1e+6)*kA * arealStrain(Z) / curvrad(Z)
 }
 
-FUNCTION Pelec (Z(um), Qm(C/meter2)) (Pa) {
+FUNCTION Pelec (Z(um), Qm(nC/cm2)) (Pa) {
 	LOCAL rels, abs_perm, S0
 	S0 = PI * a * a
 	rels = S0 / surface(Z)
 	abs_perm = epsilon0 * epsilonR
-	Pelec = -rels * Qm * Qm / (2 * abs_perm)
+	Pelec = -(1e-10) * rels * Qm * Qm / (2 * abs_perm)
 }
 
-FUNCTION Pv (U(um/ms), R(um)) (Pa) {
+FUNCTION Pvtot (U(um/ms), R(um)) (Pa) {
 	LOCAL PVleaflet, PVfluid
 	PVleaflet = -12 * U * delta0 * muS / R^2
 	PVfluid = -4 * U * muL / abs(R)
-	Pv = (1000)*(PVleaflet + PVfluid)
+	Pvtot = (1000)*(PVleaflet + PVfluid)
 }
 
 FUNCTION volume (Z(um)) (um3) {
@@ -170,7 +175,7 @@ FUNCTION n_num(r(um2)) (1) {
  
 FUNCTION cm(t(ms), Z(um)) (uF/cm2) {
 	LOCAL z2
-	if (t >= tbegin && t <= (tbegin + tdur)) {
+	if (t > tbegin && t < (tbegin + tdur)) {
 		if (Z==zeR) {
 			cm = cm0
 		} else {
@@ -184,7 +189,7 @@ FUNCTION cm(t(ms), Z(um)) (uF/cm2) {
         
 FUNCTION dcmdt(Z(um), U(um/ms))(uF/cm2-ms) {
 	LOCAL ratio1, ratio2
-	if (t >= tbegin && t <= (tbegin + tdur)) {
+	if (t > tbegin && t < (tbegin + tdur)) {
 		ratio1 = (Z*Z + a*a) / (Z*(2*Z+Delta))
 		ratio2 = (Z*Z + a*a) / (2 * Z*Z) * log((2*Z+Delta)/Delta)
 		dcmdt = cm0*Delta/(a*a)*(ratio1-ratio2)*U
@@ -194,50 +199,58 @@ FUNCTION dcmdt(Z(um), U(um/ms))(uF/cm2-ms) {
 }
 
 FUNCTION dUdt(Z(um), U(um/ms), ng(mol)) (um/ms2) {
-	LOCAL Z_min, Z_use, R, S, V, Pg, Pm, PV, Ps, PQ, Ptot, accP, accNL
+	LOCAL R, S, V, Pg, Pm, Pv, Pac, Ptot, accP, accNL
 	
+	if (t > tbegin && t < (tbegin + tdur)) {
+	
+		if (Z > a) {
+			Z = a
+		}
+		if (Z < Zmin) {
+			Z = Zmin
+		}
+		
+		R = curvrad(Z)
+		S = surface(Z)
+		V = volume(Z)
+		
+		if (Z<=Zqs) {
+			Pg = gasmol2Paqs(V)
+		} else {
+			Pg = gasmol2Pa(ng, V)
+		}
+		Pm = PMavgPred(Z)
+		Pv = Pvtot(U, R)
+		Pac = A * sin(2*PI*f*t)
+		Ptot = Pm+Pg-P0-Pac+PEtot(Z)+Pv+Pelec(Z, c*v)
+		accP = Ptot / (rhoL * R)
+		accNL = -(3 * U ^ 2) / (2 * R)
+		dUdt = accNL + (1e+6) * accP
+	} else {
+		dUdt = 0 (um/ms2)
+	}
+}
+
+FUNCTION Zbound(Z(um), t(ms)) (um) {
 	if (t >= tbegin && t <= (tbegin + tdur)) {
-	
-	if (Z > a) {
-		Z = a
-	}
-	if (Z < Zmin) {
-		Z = Zmin
-	}
-	
-	R = curvrad(Z)
-	S = surface(Z)
-	V = volume(Z)
-	if (Z < Zqs) {
-	Pg = gasmol2Paqs(V)
+		if (Z > a) {
+			Z = a
+		}
+		if (Z < Zmin) {
+			Z = Zmin
+		}
 	} else {
-	Pg = gasmol2Pa(ng, V)
-	}
-	Pm = PMavgPred(Z)
-	PV = Pv(U, R)
-	Ps = PEtot(Z)
-	PQ = Pelec(Z, (1e-5) * c * v)
-	Ptot = A*sin(2*PI*f*t) + Ps + PV + Pm + Pg + PQ - P0
-	accP = Ptot / (rhoL * abs(R))
-	accNL = -(3 * U ^ 2) / (2 * R)
-	dUdt = accNL + (1e+6) * accP
-	} else {
-	dUdt = 0 (um/ms2)
+		Z = z0
 	}
 }
 
-FUNCTION Zbound(Z(um)) (um) {
-	if (Z > a) {
-		Z = a
-	}
-	if (Z < Zmin) {
-		Z = Zmin
-	}
-}
-
-FUNCTION ngbound(ng(mol)) (mol) {
-	if (ng < 0 (mol)) {
-		ng = 1e-24
+FUNCTION ngbound(ng(mol), t(ms)) (mol) {
+	if (t >= tbegin && t <= (tbegin + tdur)) {
+		if (ng < 0 (mol)) {
+			ng = 1e-24
+		}
+	} else {
+		ng = gasPa2mol(P0, PI * Delta * a* a)
 	}
 }
 
@@ -253,8 +266,6 @@ INITIAL {
 
 BEFORE BREAKPOINT {
 	c = cm(t, Z)
-	ng = ngbound(ng)
-	Z = Zbound(Z)
 	dc = dcmdt(Z, U)
 }
 
@@ -269,17 +280,9 @@ DERIVATIVE states {
 	U' = dUdt(Z, U, ng)
 	VERBATIM 
 	{
-		static int zcnt=0;
-		static double ztold=0;
-		if (ztold == t) {
-			zcnt++;
-		if (zcnt >= 50) {
-			abort();
-		}} else {
-			zcnt = 0;
-			ztold = t;
+		if (t >= tbegin && t <= (tbegin + tdur)) {
+			printf("t=%.20g ng=%g Z=%g U=%g Dng=%g DZ=%g DU=%g\n", t, ng, Z, U, Dng, DZ, DU);
 		}
-		printf("t=%.20g ng=%g Z=%g U=%g Dng=%g DZ=%g DU=%g\n", t, ng, Z, U, Dng, DZ, DU);
 	}
 	ENDVERBATIM
 }
