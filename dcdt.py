@@ -35,13 +35,13 @@ stim.z0 = 6.3168827639957465e-6
 
 
 stim.tbegin = 100
-stim.tdur = 1000
+stim.tdur = 100
 t_vec = h.Vector().record(h._ref_t, 0.1)
 c_vec = h.Vector().record(soma(0.5)._ref_cm, 0.1)
 z_vec = h.Vector().record(stim._ref_U, 0.1)
 v_vec = h.Vector().record(soma(0.5)._ref_v, 0.1)
 
-h.tstop=1500
+h.tstop=300
 # h.dt = 1e-6
 h.finitialize(-65)
 h.run()
