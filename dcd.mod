@@ -14,6 +14,7 @@ NEURON {
   POINT_PROCESS DcDt
   THREADSAFE
   RANGE cm0, tbegin, tdur, dc, a, LJ_C, LJ_alpha, Delta, m, n, f, A, z0
+  RANGE q, stm, rel_Zmin
   POINTER c
   NONSPECIFIC_CURRENT i
 }
@@ -41,7 +42,7 @@ PARAMETER {
   m = 3.9176    (1)
   n = 1.0134   (1)
   LJ_C = 18404.94148 (Pa)
-  LJ_alpha = 1.6606e-9 (um)
+  LJ_alpha = 1.6606e-3 (um)
   
   rhoL = 1075.0 (kg/m3)
   muL = 7.0e-4 (Pa-s)
@@ -66,13 +67,17 @@ ASSIGNED {
   i (nA)
   v (mV)
   area (um2)
+  Zmin (um)
+
+
+  q (nC/cm2)
+  stm (Pa)
 }
 
 STATE {
 	ng (mol)
 	U (um/ms)
 	Z (um)
-	Zmin (um)
 }
 
 
@@ -176,6 +181,7 @@ FUNCTION n_num(r(um2)) (1) {
 FUNCTION cm(t(ms), Z(um)) (uF/cm2) {
 	LOCAL z2
 	if (t > tbegin && t < (tbegin + tdur)) {
+		
 		if (Z==zeR) {
 			cm = cm0
 		} else {
@@ -222,17 +228,19 @@ FUNCTION dUdt(Z(um), U(um/ms), ng(mol)) (um/ms2) {
 		Pm = PMavgPred(Z)
 		Pv = Pvtot(U, R)
 		Pac = A * sin(2*PI*f*t)
+		stm = Pac
 		Ptot = Pm+Pg-P0-Pac+PEtot(Z)+Pv+Pelec(Z, c*v)
 		accP = Ptot / (rhoL * R)
 		accNL = -(3 * U ^ 2) / (2 * R)
 		dUdt = accNL + (1e+6) * accP
 	} else {
 		dUdt = 0 (um/ms2)
+		stm = 0
 	}
 }
 
 FUNCTION Zbound(Z(um), t(ms)) (um) {
-	if (t >= tbegin && t <= (tbegin + tdur)) {
+	if (t > tbegin && t < (tbegin + tdur)) {
 		if (Z > a) {
 			Z = a
 		}
@@ -244,29 +252,24 @@ FUNCTION Zbound(Z(um), t(ms)) (um) {
 	}
 }
 
-FUNCTION ngbound(ng(mol), t(ms)) (mol) {
-	if (t >= tbegin && t <= (tbegin + tdur)) {
-		if (ng < 0 (mol)) {
-			ng = 1e-24
-		}
-	} else {
-		ng = gasPa2mol(P0, PI * Delta * a* a)
-	}
-}
-
 INITIAL {
 	c = cm0
 	Zmin = rel_Zmin * Delta
+	ng = gasPa2mol(P0, PI * Delta * a* a)
 	dc = 0
 	U = u0
 	Z = z0
-	ng = gasPa2mol(P0, PI * Delta * a* a)
 	net_send(tbegin, 1)
 }
 
 BEFORE BREAKPOINT {
+	Z = Zbound(Z, t)
+	if (t<= tbegin || t >= (tbegin + tdur)) {
+		ng = gasPa2mol(P0, PI * Delta * a* a)
+	}
 	c = cm(t, Z)
 	dc = dcmdt(Z, U)
+	q = c * v
 }
 
 BREAKPOINT { 
@@ -278,13 +281,7 @@ DERIVATIVE states {
 	ng' = (0.001) * sele(Z, ng)
 	Z' = U
 	U' = dUdt(Z, U, ng)
-	VERBATIM 
-	{
-		if (t >= tbegin && t <= (tbegin + tdur)) {
-			printf("t=%.20g ng=%g Z=%g U=%g Dng=%g DZ=%g DU=%g\n", t, ng, Z, U, Dng, DZ, DU);
-		}
-	}
-	ENDVERBATIM
+
 }
 
 NET_RECEIVE(w) {
