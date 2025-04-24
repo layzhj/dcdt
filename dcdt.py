@@ -50,7 +50,7 @@ except:
     pass
 
 end_time = time.time()
-print('运行时长：', end_time - start_time)
+print('continue:', end_time - start_time)
 
 t_array = t_vec.as_numpy()
 z_array = z_vec.as_numpy()
