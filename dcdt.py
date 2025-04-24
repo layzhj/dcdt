@@ -16,7 +16,6 @@ cv.atolscale("DcDt.ng", 1e-22)
 cv.atolscale("DcDt.U", 1)
 cv.atolscale("DcDt.Z", 1e-6)
 
-
 A = 300e3
 f = 500
 soma = h.Section(name='soma')
@@ -32,7 +31,7 @@ stim.Delta = 1.2735619230798087e-03
 stim.z0 = 6.3168827639957465e-6
 stim.rel_Zmin = -0.1
 
-stim.tbegin = 100
+stim.tbegin = 0.01
 stim.tdur = 100
 t_vec = h.Vector().record(h._ref_t)
 c_vec = h.Vector().record(soma(0.5)._ref_cm)
@@ -40,8 +39,9 @@ z_vec = h.Vector().record(stim._ref_Z)
 ng_vec = h.Vector().record(stim._ref_ng)
 q_vec = h.Vector().record(stim._ref_q)
 stm = h.Vector().record(stim._ref_stm)
+U_vec = h.Vector().record(stim._ref_U)
 
-h.tstop=300
+h.tstop=200
 # h.dt = 1e-6
 h.finitialize(-65)
 try:
@@ -58,10 +58,10 @@ c_array = c_vec.as_numpy()
 ng_array = ng_vec.as_numpy()
 q_array = q_vec.as_numpy()
 stm_array = stm.as_numpy()
+U_array = U_vec.as_numpy()
 print(z_array)
 
-
-fig, ax = plt.subplots(5, 1)
+fig, ax = plt.subplots(6, 1)
 
 ax[0].plot(t_array, z_array, color='orange')
 ax[0].set_ylabel('Z (um)')
@@ -75,7 +75,10 @@ ax[2].set_ylabel('Charge ($nC/cm^{2}$)')
 ax[3].plot(t_array, stm_array, color='orange')
 ax[3].set_ylabel('Driver (Pa)')
 
-ax[4].plot(t_array, c_array, color='orange', label='Capacitance')
-ax[4].set_xlabel('Time (ms)')
-ax[4].set_ylabel('Capacitance ($uF/cm^{2}$)')
+ax[4].plot(t_array, U_array, color='orange')
+ax[4].set_ylabel('dZ/dt (um/ms)')
+
+ax[5].plot(t_array, c_array, color='orange', label='Capacitance')
+ax[5].set_xlabel('Time (ms)')
+ax[5].set_ylabel('Capacitance ($uF/cm^{2}$)')
 plt.show()
