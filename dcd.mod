@@ -167,11 +167,15 @@ FUNCTION abs(r(um)) (um) {
 	}
 }
 
-FUNCTION sele(Z(um), ng(mol)) (mol/s) {
-	if (Z<=Zqs) {
-		sele = gasFlux(Z, gasmol2Paqs(volume(Z)))
+FUNCTION sele(Z(um), ng(mol), t(ms)) (mol/s) {
+	if (t > tbegin && t < (tbegin + tdur)) {
+		if (Z<=Zqs) {
+			sele = gasFlux(Z, gasmol2Paqs(volume(Z)))
+		} else {
+			sele = gasFlux(Z, gasmol2Pa(ng, volume(Z)))
+		}
 	} else {
-		sele = gasFlux(Z, gasmol2Pa(ng, volume(Z)))
+		sele = 0
 	}
 }
 
@@ -258,9 +262,7 @@ INITIAL {
 
 BEFORE BREAKPOINT {
 	Z = Zbound(Z, t)
-	if (t<= tbegin || t >= (tbegin + tdur)) {
-		ng = gasPa2mol(P0, PI * Delta * a* a)
-	}
+	
 	c = cm(t, Z)
 	dc = dcmdt(Z, U)
 	q = c * v
@@ -272,7 +274,7 @@ BREAKPOINT {
 }
 
 DERIVATIVE states {
-	ng' = (0.001) * sele(Z, ng)
+	ng' = (0.001) * sele(Z, ng, t)
 	Z' = U
 	U' = dUdt(Z, U, ng)
 
