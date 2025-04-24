@@ -1,26 +1,26 @@
-from neuron import h, gui
+from neuron import h
+import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-from datetime import *
 import time
-import sys
+
 rcParams['font.family'] = 'SimHei'
 plt.rcParams['axes.unicode_minus'] =False
-# sys.setrecursionlimit(30000)
-# current_time = datetime.now()
-# print(current_time)
+
 start_time = time.time()
 
-h.load_file('stdrun.hoc')
+
+h.load_file('stdgui.hoc')
 h.cvode_active(1)
 cv = h.CVode()
 cv.atolscale("DcDt.ng", 1e-22)
 cv.atolscale("DcDt.U", 1)
 cv.atolscale("DcDt.Z", 1e-6)
-cv.atol(1e-4)
+
+csv_path = 'F:/结果汇总/2025/数据结果/超声膜空化/超声仿真效果/hoc_test.csv'
 
 A = 300e3
-f = 500e3
+f = 500
 soma = h.Section(name='soma')
 soma.L = 10
 soma.diam = 10
@@ -32,40 +32,54 @@ stim.A = A
 stim.f = f
 stim.Delta = 1.2735619230798087e-03
 stim.z0 = 6.3168827639957465e-6
-
+stim.rel_Zmin = -0.1
 
 stim.tbegin = 100
 stim.tdur = 100
-t_vec = h.Vector().record(h._ref_t, 0.1)
-c_vec = h.Vector().record(soma(0.5)._ref_cm, 0.1)
-z_vec = h.Vector().record(stim._ref_U, 0.1)
-v_vec = h.Vector().record(soma(0.5)._ref_v, 0.1)
+t_vec = h.Vector().record(h._ref_t)
+c_vec = h.Vector().record(soma(0.5)._ref_cm)
+z_vec = h.Vector().record(stim._ref_Z)
+ng_vec = h.Vector().record(stim._ref_ng)
+q_vec = h.Vector().record(stim._ref_q)
+stm = h.Vector().record(stim._ref_stm)
 
 h.tstop=300
 # h.dt = 1e-6
 h.finitialize(-65)
-h.run()
+try:
+    h.run()
+except:
+    pass
 
-# end_time = datetime.now()
 end_time = time.time()
-# print(end_time)
-print('Total time:', end_time-start_time)
+print('运行时长：', end_time - start_time)
 
 t_array = t_vec.as_numpy()
 z_array = z_vec.as_numpy()
 c_array = c_vec.as_numpy()
-v_array = v_vec.as_numpy()
+ng_array = ng_vec.as_numpy()
+q_array = q_vec.as_numpy()
+stm_array = stm.as_numpy()
 print(z_array)
 
-fig, ax = plt.subplots(3, 1)
+df = pd.DataFrame({'t': t_array, 'Z': z_array, 'ng': ng_array, 'C': c_array})
+df.to_csv(csv_path)
+
+fig, ax = plt.subplots(5, 1)
 
 ax[0].plot(t_array, z_array, color='orange')
 ax[0].set_ylabel('Z (um)')
 
-ax[1].plot(t_array, v_array, color='orange')
-ax[1].set_ylabel('V (mV)')
+ax[1].plot(t_array, ng_array, color='orange')
+ax[1].set_ylabel('ng (mol)')
 
-ax[2].plot(t_array, c_array, color='orange', label='Capacitance')
-ax[2].set_xlabel('Time (ms)')
-ax[2].set_ylabel('Capacitance ($uF/cm^{2}$)')
+ax[2].plot(t_array, q_array, color='orange')
+ax[2].set_ylabel('Charge ($nC/cm^{2}$)')
+
+ax[3].plot(t_array, stm_array, color='orange')
+ax[3].set_ylabel('Driver (Pa)')
+
+ax[4].plot(t_array, c_array, color='orange', label='Capacitance')
+ax[4].set_xlabel('Time (ms)')
+ax[4].set_ylabel('Capacitance ($uF/cm^{2}$)')
 plt.show()
