@@ -1,3 +1,4 @@
+
 UNITS {
 	(nA) = (nanoamp)
 	(mV) = (millivolt)
@@ -208,13 +209,6 @@ FUNCTION dUdt(Z(um), U(um/ms), ng(mol)) (um/ms2) {
 	LOCAL R, S, V, Pg, Pm, Pv, Pac, Ptot, accP, accNL
 	
 	if (t > tbegin && t < (tbegin + tdur)) {
-	
-		if (Z > a) {
-			Z = a
-		}
-		if (Z < Zmin) {
-			Z = Zmin
-		}
 		
 		R = curvrad(Z)
 		S = surface(Z)
