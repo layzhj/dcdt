@@ -1,5 +1,4 @@
 from neuron import h
-import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import time
@@ -17,7 +16,6 @@ cv.atolscale("DcDt.ng", 1e-22)
 cv.atolscale("DcDt.U", 1)
 cv.atolscale("DcDt.Z", 1e-6)
 
-csv_path = 'F:/结果汇总/2025/数据结果/超声膜空化/超声仿真效果/hoc_test.csv'
 
 A = 300e3
 f = 500
@@ -62,8 +60,6 @@ q_array = q_vec.as_numpy()
 stm_array = stm.as_numpy()
 print(z_array)
 
-df = pd.DataFrame({'t': t_array, 'Z': z_array, 'ng': ng_array, 'C': c_array})
-df.to_csv(csv_path)
 
 fig, ax = plt.subplots(5, 1)
 
