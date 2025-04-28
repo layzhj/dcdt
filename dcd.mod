@@ -26,9 +26,8 @@ PARAMETER {
   tdur = 1000 (ms)
   a = 32e-3 (um)
   dc (uF/cm2-ms)
-  w = 0 (/ms)
   A = 1 (Pa)
-  f = 1000 (/ms)
+  f = 500 (khz)
   zeR = 0 (um)
   oneR = 1 (um)
   z0 = 0 (um)
@@ -112,12 +111,9 @@ FUNCTION sign(i(um)) (1) {
 
 FUNCTION PMavgPred (Z(um)) (Pa) {
 	LOCAL LJ_factor
-	if (Z<Zqs) {
-		PMavgPred = 0
-	} else {
-		LJ_factor = LJ_alpha / (2 * Z + Delta)
-		PMavgPred = LJ_C * (LJ_factor ^ m - LJ_factor ^ n)
-	}
+	LJ_factor = LJ_alpha / (2 * Z + Delta)
+	PMavgPred = LJ_C * (LJ_factor ^ m - LJ_factor ^ n)
+	
 }
 
 FUNCTION PEtot (Z(um)) (Pa) {
@@ -134,7 +130,7 @@ FUNCTION Pelec (Z(um), Qm(nC/cm2)) (Pa) {
 
 FUNCTION Pvtot (U(um/ms), R(um)) (Pa) {
 	LOCAL PVleaflet, PVfluid
-	PVleaflet = -12 * U * delta0 * muS / R^2
+	PVleaflet = -12 * U * delta0 * muS / (R * R)
 	PVfluid = -4 * U * muL / abs(R)
 	Pvtot = (1000)*(PVleaflet + PVfluid)
 }
@@ -201,9 +197,13 @@ FUNCTION cm(t(ms), Z(um)) (uF/cm2) {
 FUNCTION dcmdt(Z(um), U(um/ms))(uF/cm2-ms) {
 	LOCAL ratio1, ratio2
 	if (t > tbegin && t < (tbegin + tdur)) {
-		ratio1 = (Z*Z + a*a) / (Z*(2*Z+Delta))
-		ratio2 = (Z*Z + a*a) / (2 * Z*Z) * log((2*Z+Delta)/Delta)
-		dcmdt = cm0*Delta/(a*a)*(ratio1-ratio2)*U
+		if (Z==zeR) {
+			dcmdt = 0
+		} else {
+			ratio1 = (Z*Z + a*a) / (Z*(2*Z+Delta))
+			ratio2 = (Z*Z + a*a) / (2 * Z*Z) * log((2*Z+Delta)/Delta)
+			dcmdt = cm0*Delta/(a*a)*(ratio1-ratio2)*U
+		}
 	} else {
 		dcmdt = 0
 	} 
@@ -218,7 +218,7 @@ FUNCTION dUdt(Z(um), U(um/ms), ng(mol)) (um/ms2) {
 		S = surface(Z)
 		V = volume(Z)
 		
-		if (Z<=Zqs) {
+		if (Z<Zqs) {
 			Pg = gasmol2Paqs(V)
 		} else {
 			Pg = gasmol2Pa(ng, V)
@@ -227,9 +227,9 @@ FUNCTION dUdt(Z(um), U(um/ms), ng(mol)) (um/ms2) {
 		Pv = Pvtot(U, R)
 		Pac = A * sin(2*PI*f*t)
 		stm = Pac
-		Ptot = Pm+Pg-P0-Pac+PEtot(Z)+Pv+Pelec(Z, c*v)
-		accP = Ptot / (rhoL * R)
-		accNL = -(3 * U ^ 2) / (2 * R)
+		Ptot = Pm+Pg-P0+stm+PEtot(Z)+Pv+Pelec(Z, c*v)
+		accP = Ptot / (rhoL * abs(R))
+		accNL = -(3 * U * U) / (2 * R)
 		dUdt = accNL + (1e+6) * accP
 	} else {
 		dUdt = 0 (um/ms2)
@@ -262,7 +262,6 @@ INITIAL {
 
 BEFORE BREAKPOINT {
 	Z = Zbound(Z, t)
-	
 	c = cm(t, Z)
 	dc = dcmdt(Z, U)
 	q = c * v
