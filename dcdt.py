@@ -15,6 +15,8 @@ cv = h.CVode()
 cv.atolscale("DcDt.ng", 1e-22)
 cv.atolscale("DcDt.U", 1)
 cv.atolscale("DcDt.Z", 1e-6)
+cv.atol(1e-10)
+
 
 A = 300e3
 f = 500
@@ -29,9 +31,9 @@ stim.A = A
 stim.f = f
 stim.Delta = 1.2735619230798087e-03
 stim.z0 = 6.3168827639957465e-6
-stim.rel_Zmin = -0.1
+stim.rel_Zmin = -0.49
 
-stim.tbegin = 0.01
+stim.tbegin = 100
 stim.tdur = 100
 t_vec = h.Vector().record(h._ref_t)
 c_vec = h.Vector().record(soma(0.5)._ref_cm)
@@ -41,7 +43,7 @@ q_vec = h.Vector().record(stim._ref_q)
 stm = h.Vector().record(stim._ref_stm)
 U_vec = h.Vector().record(stim._ref_U)
 
-h.tstop=200
+h.tstop=300
 # h.dt = 1e-6
 h.finitialize(-65)
 try:
@@ -60,6 +62,7 @@ q_array = q_vec.as_numpy()
 stm_array = stm.as_numpy()
 U_array = U_vec.as_numpy()
 print(z_array)
+
 
 fig, ax = plt.subplots(6, 1)
 
