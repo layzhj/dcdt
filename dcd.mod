@@ -165,6 +165,12 @@ FUNCTION abs(r(um)) (um) {
 
 FUNCTION sele(Z(um), ng(mol), t(ms)) (mol/s) {
 	if (t > tbegin && t < (tbegin + tdur)) {
+		if (Z > a) {
+			Z = a
+		}
+		if (Z < Zmin) {
+			Z = Zmin
+		}
 		if (Z<=Zqs) {
 			sele = gasFlux(Z, gasmol2Paqs(volume(Z)))
 		} else {
@@ -182,6 +188,12 @@ FUNCTION n_num(r(um2)) (1) {
 FUNCTION cm(t(ms), Z(um)) (uF/cm2) {
 	LOCAL z2
 	if (t > tbegin && t < (tbegin + tdur)) {
+		if (Z > a) {
+			Z = a
+		}
+		if (Z < Zmin) {
+			Z = Zmin
+		}
 		
 		if (Z==zeR) {
 			cm = cm0
@@ -194,9 +206,15 @@ FUNCTION cm(t(ms), Z(um)) (uF/cm2) {
 	}
 }
         
-FUNCTION dcmdt(Z(um), U(um/ms))(uF/cm2-ms) {
+FUNCTION dcmdt(t(ms), Z(um), U(um/ms))(uF/cm2-ms) {
 	LOCAL ratio1, ratio2
 	if (t > tbegin && t < (tbegin + tdur)) {
+		if (Z > a) {
+			Z = a
+		}
+		if (Z < Zmin) {
+			Z = Zmin
+		}
 		if (Z==zeR) {
 			dcmdt = 0
 		} else {
@@ -209,11 +227,17 @@ FUNCTION dcmdt(Z(um), U(um/ms))(uF/cm2-ms) {
 	} 
 }
 
-FUNCTION dUdt(Z(um), U(um/ms), ng(mol)) (um/ms2) {
+FUNCTION dUdt(t(ms), Z(um), U(um/ms), ng(mol)) (um/ms2) {
 	LOCAL R, S, V, Pg, Pm, Pv, Pac, Ptot, accP, accNL
 	
 	if (t > tbegin && t < (tbegin + tdur)) {
-		
+		if (Z > a) {
+			Z = a
+		}
+		if (Z < Zmin) {
+			Z = Zmin
+		} 
+
 		R = curvrad(Z)
 		S = surface(Z)
 		V = volume(Z)
@@ -237,19 +261,6 @@ FUNCTION dUdt(Z(um), U(um/ms), ng(mol)) (um/ms2) {
 	}
 }
 
-FUNCTION Zbound(Z(um), t(ms)) (um) {
-	if (t > tbegin && t < (tbegin + tdur)) {
-		if (Z > a) {
-			Z = a
-		}
-		if (Z < Zmin) {
-			Z = Zmin
-		}
-	} else {
-		Z = z0
-	}
-}
-
 INITIAL {
 	c = cm0
 	Zmin = rel_Zmin * Delta
@@ -261,9 +272,14 @@ INITIAL {
 }
 
 BEFORE BREAKPOINT {
-	Z = Zbound(Z, t)
+	if (Z > a) {
+		Z = a
+	}
+	if (Z < Zmin) {
+		Z = Zmin
+	}
 	c = cm(t, Z)
-	dc = dcmdt(Z, U)
+	dc = dcmdt(t, Z, U)
 	q = c * v
 }
 
@@ -274,24 +290,25 @@ BREAKPOINT {
 
 DERIVATIVE states {
 	ng' = (0.001) * sele(Z, ng, t)
+	U' = dUdt(t, Z, U, ng)
 	Z' = U
-	U' = dUdt(Z, U, ng)
-
 }
 
 NET_RECEIVE(w) {
 	LOCAL qbefore, cafter, epsilon, tt
 	epsilon = 1e-10 (ms)
 	if (flag == 1) { : turn on stim
+		Z = z0
 		tt = tbegin
 		qbefore = cm(tt - epsilon, Z)*v : charge prior to discontinuity
 		cafter = cm(tt + epsilon, Z) : capacitance after discontinuity
 		v = qbefore/cafter
 		net_send(tdur, 2)
 	} else if (flag == 2) { : turn off stim
+		Z = z0
 		tt = tbegin + tdur
 		qbefore = cm(tt - epsilon, Z)*v : charge prior to discontinuity
 		cafter = cm(tt + epsilon, Z) : capacitance after discontinuity
-	v = qbefore/cafter
+		v = qbefore/cafter
 	}
 }
